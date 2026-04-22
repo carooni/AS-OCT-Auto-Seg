@@ -1,0 +1,33 @@
+{
+	"mst_classify": {
+		"code": "mst_classification.py",
+		"code_learn": "mst_classification_learn.py",
+		"chunk": "mst_classify",
+		"input_image": "from process_image",
+		"gpu_num": "from arg gpu_num",
+		"model_path": "../../weights/ct_nodule_512x512/nodule-mst_classify.ckptmeta",
+		"label": "Nodule Consistency",
+        "label_mapper_str2int": {"Solid":0, "Pure ground glass":1, "Part-solid":0},
+		"model_name": "DinoV2ClassifierSlice",
+		"optimizer": "AdamW",
+        "learning_rate": 1e-6,
+        "weight_decay": 1e-2,
+        "image_resize": [28,28,28],
+        "resample": null,
+        "image_crop": null,
+        "aug_flip_p": 0.5,
+        "aug_flip_axes": [0, 1],
+        "aug_affine_p": 0.5,
+        "aug_rotate_range": [10.0, 10.0, 10.0],
+        "aug_translate_range": [2.0, 2.0, 2.0],
+        "aug_scale_range": [0.05, 0.05, 0.05],
+        "aug_invert_p": 0.0,
+        "aug_noise_p": 0.3,
+        "aug_noise_std": [0.0, 0.05],
+        "aug_blur_p": 0.2,
+        "aug_blur_std": [0.0, 0.5],
+        "aug_bias_field_p": 0.0,
+        "aug_elastic_p": 0.0
+	}
+
+}

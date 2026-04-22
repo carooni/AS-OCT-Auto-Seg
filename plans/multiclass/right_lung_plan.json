@@ -1,0 +1,20 @@
+{
+	"get_right_lung": {
+		"code": "get_mask_by_label.py",
+		"input_mask": "from lungs",
+		"label": 2,
+		"mode": "binary",
+		"final_output": true
+	},
+
+    "save_png": {
+        "code": "save_png.py",
+        "input_image": "from input_image",
+        "input_mask": "from get_right_lung",
+        "mask_none": false,
+        "mask_alpha": 0.5,
+        "filename": "right_lung_overlay",
+        "title": "right_Lung"
+    }
+
+}

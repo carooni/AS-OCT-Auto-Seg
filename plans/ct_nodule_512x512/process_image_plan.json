@@ -1,0 +1,30 @@
+{
+	"image_channel_select": {
+		"code": "channel_select.py",
+    	"context": "../../tools/image_processing/channel_select",
+		"chunk": "process_image",
+		"input_image": "from input_image",
+		"channel_list": [0]
+    },
+	"image_resize": {
+		"code": "resize.py",
+		"chunk": "process_image",
+		"input_image": "from image_channel_select",
+		"target_shape": [1, 28, 28, 28],
+		"order": 3,
+		"preserve_range": true,
+		"anti_aliasing": true
+	},
+	"image_norm": {
+		"code": "minmax_norm.py",
+		"chunk": "process_image",
+		"input_image": "from image_resize",
+		"final_output": true
+	},
+  	"save_png": {
+      "code": "save_png.py",
+	  "view_channel_for_4d": 0,
+      "input_image": "from image_norm"
+  }
+
+}

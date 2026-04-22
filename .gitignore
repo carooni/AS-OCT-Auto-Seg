@@ -1,0 +1,8 @@
+__pycache__
+working-*
+data
+weights
+libgo1.25.5.linux-amd64.tar.gz
+*.exe
+build/
+dist/
