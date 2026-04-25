@@ -21,7 +21,7 @@
 
 ## About
 
-**AS-OCT Auto-Seg** is a clinician-facing GUI built on top of the **CADe glaucoma analysis platform**. It wraps the [SimpleMind](https://simplemind.eu/) pipeline — a modular computer vision framework where image processing tools are composed and connected via a **JSON plan** — into an accessible, point-and-click interface designed for clinical workflows.
+**AS-OCT Auto-Seg** is a clinician-facing GUI built on top of the **CADe glaucoma analysis platform**. It wraps the [SimpleMind](https://gitlab.com/sm-ai-team/simplemind/-/tree/mbrown/new_sm/) pipeline — a modular computer vision framework where image processing tools are composed and connected via a **JSON plan** — into an accessible, point-and-click interface designed for clinical workflows.
 
 **Key capabilities:**
 - GUI-driven access to the SimpleMind pipeline for AS-OCT image segmentation
@@ -145,21 +145,8 @@ Simply **double-click** `AS-OCT Auto-Seg.exe` in the repository folder.
 | Component | Technology |
 |---|---|
 | GUI Framework | Python (SimpleMind-integrated) |
-| Computer Vision Pipeline | [SimpleMind](https://simplemind.eu/) |
+| Computer Vision Pipeline | [SimpleMind](https://gitlab.com/sm-ai-team/simplemind/-/tree/mbrown/new_sm/) |
 | Pipeline Configuration | JSON Plans |
 | Environment Management | [Micromamba](https://mamba.readthedocs.io/) |
 | Backend Runtime | [SMCore](https://gitlab.com/hoffman-lab/core) (Go) |
 | Target Platform | WSL (Linux) / Windows |
-
----
-
-## Contributing
-
-Contributions, bug reports, and feature requests are welcome! Please open an issue or submit a pull request.
-
----
-
-## Contact
-
-For questions or support, please open an [issue on GitHub](https://github.com/carooni/AS-OCT-Auto-Seg/issues).
-
