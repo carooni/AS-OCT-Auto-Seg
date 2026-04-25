@@ -1,163 +1,165 @@
-# SimpleMind adds thinking to deep neural networks
+<div align="center">
 
-<!-- ![SM_logo_v0](docs/figure/SIMPLEMIND_logo_multi_gradient_side_text_smaller.png) -->
+<br/>
 
-<img src="docs/figure/SIMPLEMIND_logo_multi_gradient_side_text_smaller.png" alt="logo" width="30%"/>
+![SimpleMind Logo](Simplemind_logo.png)
 
-** December 12, 2025: Welcome to SimpleMind to the UCLA PBMED 210 class. For support, please email m w ahian war @ med net . ucla  . edu (remove all spaces). We're here to help!
+<br/>
+
+# AS-OCT Auto-Seg
+
+### CADe Glaucoma Analysis Platform — GUI
+
+*A clinical-grade graphical interface for automated anterior segment OCT segmentation, powered by the SimpleMind computer vision pipeline.*
+
+<br/>
+
+
+</div>
 
 ---
 
-**SimpleMind (SM)** provides computer vision tools that can be connected into pipelines using a JSON plan. 
-* Tools receive input messages, process data, and send output messages. 
-* Plans can be created and refined collaboratively by humans and AI. 
+## About
 
-If you know basic **Python** and **JSON**, you can learn SimpleMind in about **90 minutes** using the instructions and exercises below.
+**AS-OCT Auto-Seg** is a clinician-facing GUI built on top of the **CADe glaucoma analysis platform**. It wraps the [SimpleMind](https://simplemind.eu/) pipeline — a modular computer vision framework where image processing tools are composed and connected via a **JSON plan** — into an accessible, point-and-click interface designed for clinical workflows.
 
-***
+**Key capabilities:**
+- GUI-driven access to the SimpleMind pipeline for AS-OCT image segmentation
+- JSON-plan-based tool orchestration (no coding required for clinicians)
+- Automated glaucoma-relevant structure analysis from anterior segment OCT scans
+- Available on WSL (Linux) and Windows (beta)
 
-## 1. Environment Setup
+---
 
-### Set up vscode
+## Installation
 
-We recommend using [Visual Studio Code](https://code.visualstudio.com) for running SimpleMind and viewing outputs.
-* If connecting to a GPU server, see [vscode connection instructions](docs/vscode.md).
-* Use `Terminal > New Terminal` to open a **bash terminal** on either your local computer or GPU server.
+> **Note:** WSL (Windows Subsystem for Linux) is required for the full installation. A native Windows executable (beta) is also available.
 
-### Clone the repository
-``` bash
-git clone git@gitlab.com:sm-ai-team/simplemind.git
-cd simplemind
-git checkout mbrown/new_sm
+---
+
+### Step 1 — Set Up WSL
+
+If you don't have WSL installed, follow Microsoft's official guide:
+
+[How to install WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+**Quick install (Windows 11 / Windows 10 Build 19041+):**
+
+```powershell
+# Run in PowerShell (as Administrator)
+wsl --install
 ```
 
-### Micromamba
+Restart your machine when prompted, then open the **WSL terminal** to continue.
 
-Create or update the environment:
-``` bash
+---
+
+### Step 2 — Clone This Repository
+
+Inside your WSL terminal, clone the repository:
+
+```bash
+git clone https://github.com/carooni/AS-OCT-Auto-Seg.git
+cd AS-OCT-Auto-Seg
+```
+
+> **Don't have Git?** Install it first:
+> ```bash
+> sudo apt update && sudo apt install git -y
+> ```
+
+---
+
+### Step 3 — Download Required Model Files
+
+Download the required files from Google Drive and place them in the **root directory** of the cloned repo (`AS-OCT-Auto-Seg/`):
+
+[Google Drive — Required Files](https://drive.google.com/drive/folders/1JSvcFIGqTCOLl8dlrSK55C0WOuau5nGr)
+
+After downloading, your directory should look something like:
+
+```
+AS-OCT-Auto-Seg/
+├── AS-OCT Auto-Seg          ← Linux executable
+├── AS-OCT Auto-Seg.exe      ← Windows executable (beta)
+├── env.yaml
+├── <downloaded model files>
+└── ...
+```
+
+---
+
+### Step 4 — Install Micromamba & Create Environment
+
+Run the following commands in your WSL terminal to install [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) and set up the Python environment:
+
+```bash
+"${SHELL}" <(curl -L micro.mamba.pm/install.sh)
 micromamba create -f env.yaml
-```
-Activate the environment:
-``` bash
 micromamba activate smcore
 ```
 
-### Install Core
-To install or update to a new version:
-``` bash
+> **Note:** After installing Micromamba, you may need to restart your terminal or run `source ~/.bashrc` before the `micromamba` command is recognized.
+
+---
+
+### Step 5 — Install SMCore
+
+Install the SMCore backend (requires [Go](https://go.dev/doc/install)):
+
+```bash
 go install gitlab.com/hoffman-lab/core@v1.1.1
 echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
-### Data download
+> **Don't have Go installed?**
+> ```bash
+> sudo apt install golang-go -y
+> ```
 
-Perform a one-time setup of data and weights by following [data setup instructions](docs/data_download.md).
+---
 
-**Note:** Unless otherwise specified, run all commands inside the micromamba environment from the `simplemind` directory.
+## Running the Application
 
-***
+### WSL / Linux
 
-## 2. Blackboard Service
+Open your WSL terminal, navigate to the repository directory, and run:
 
-Tools exchange messages via a **Blackboard (BB)**.
-
-Start a local Core BB:
-``` bash
-core start server
+```bash
+cd AS-OCT-Auto-Seg
+micromamba activate smcore
+./"AS-OCT Auto-Seg"
 ```
 
-Leave this terminal running:
-* You will see BB messages appear when running plans.
-* Open a new terminal for subsequent commands.
-* The address for your local BB is `127.0.0.1:8080`.
+### Windows *(Beta)*
 
-If you are on the [gpu-1 server](docs/gpu1.md), there are additional instructions to access the BB service.
+Simply **double-click** `AS-OCT Auto-Seg.exe` in the repository folder.
 
-***
+> Windows support is currently in beta. For the most stable experience, use the WSL method above.
 
-## 3. Running a Plan
+---
 
-**Thinking** (inference) example in SM: segment the trachea and lungs on chest x-rays. 
+## Tech Stack
 
-``` bash
-python run_plan.py plans/cxr --dataset_csv data/cxr_images.csv --gpu_num 0 --addr 127.0.0.1:8080
-```
-* `run_plan.py` is a [**controller**](docs/controller.md) 
-* It displays a [**dashboard**](docs/dashboard.md) for the run
-* Directs terminal output to `working-<id>/stdout-<id>.log` and `working-<id>/stderr-<id>.log`
-* Tool outputs for case 0: `working-<id>/output-<id>/samples/0/`
-    * `trachea_overlay.png` and `lungs_overlay.png` are the final segmented masks
-    * They can be opened in vscode
+| Component | Technology |
+|---|---|
+| GUI Framework | Python (SimpleMind-integrated) |
+| Computer Vision Pipeline | [SimpleMind](https://simplemind.eu/) |
+| Pipeline Configuration | JSON Plans |
+| Environment Management | [Micromamba](https://mamba.readthedocs.io/) |
+| Backend Runtime | [SMCore](https://gitlab.com/hoffman-lab/core) (Go) |
+| Target Platform | WSL (Linux) / Windows |
 
-Clean up:
-``` bash
-rm -r working-*
-```
+---
 
-***
+## Contributing
 
-## 4. Tutorials
+Contributions, bug reports, and feature requests are welcome! Please open an issue or submit a pull request.
 
-Work through these exercises to get hands-on with SimpleMind:
+---
 
-[Exercise 1](docs/exercise1.md): Plans and tools for inference (*Thinking*)<br>
+## Contact
 
-[Exercise 2](docs/exercise2.md): Developing a tool<br>
+For questions or support, please open an [issue on GitHub](https://github.com/carooni/AS-OCT-Auto-Seg/issues).
 
-[Exercise 3](docs/exercise3.md): Decision trees<br>
-
-[Exercise 4](docs/exercise4.md): Training a tool (*Learning*)<br>
-
-***
-
-## 5. How To
-
-[Docker Environment](docs/docker.md): User a Docker environment (instead of micromamba).<br>
-[Input Parameters](docs/input_parameters.md): Specify an input parameter using "from".<br>
-[Process Cleanup](docs/process_cleanup.md): Clean up tool processes.<br>
-[Tool Environments](docs/tool_envs.md): Create a tool that runs in its own environment.<br>
-[Tune PyTorch](docs/tune_pytorch.md): Tune PyTorch learning parameters for segmentation.<br>
-
-
-***
-
-## 6. Tools
-
-Tool documentation: [tools/README.md](tools/README.md)
-
-To update docs:
-``` bash
-python tool_doc.py
-git add tools/README.md
-git commit -m "update tools/README.md"
-git push
-```
-
-***
-
-## 7. Git Commit
-``` bash
-git add -u
-git status
-git commit -m"updating sm pipeline"
-git push
-```
-
-***
-
-## License
-
-SimpleMind is licensed under the 3-clause BSD license. For details, please see the [LICENSE](./LICENSE) file.
-
-If you use this software in your research or project, please cite our [paper](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0283587):
-``` code
-Choi Y, Wahi-Anwar MW, Brown MS. SimpleMind: An open-source software environment that adds thinking to deep neural networks. PLoS One. 2023 Apr 13;18(4):e0283587. doi: 10.1371/journal.pone.0283587. PMID: 37053159; PMCID: PMC10101376.
-```
-
-***
-
-## About Us
-
-SimpleMind is a [Cognitive AI](docs/cognitive_ai.md) environment for combining human knowledge and reasoning with deep neural networks. 
-
-While our core applications are in medical imaging, SimpleMind is designed to be general-purpose. Our vision is for the community to expand it toward the broader goal of **human-level intelligence and beyond**. 
