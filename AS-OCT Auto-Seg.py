@@ -22,9 +22,9 @@ import timm
 import torch
 import torchvision
 
-## BEGIN UI
-WINDOW_WIDTH = 1000
-WINDOW_HEIGHT = 900
+WINDOW_COLLAPSED_WIDTH = 800
+WINDOW_EXPANDED_WIDTH = 1200
+WINDOW_HEIGHT = 600
 
 WHITE = "#ffffff"
 TEXT_BLACK = "#111111"
@@ -43,14 +43,13 @@ SM_LOGO_PATH = './assets/sm_logo.png'
 
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")
 
-## END UI
 
 ## CONFIG
-SIMPLEMIND_DIR = "./" # DELETE AFTER CONFIGURING DYNAMIC FOLDER OPTIONS
-PLAN           = "plans/oct"
-CSV_FILE       = "data/oct_images.csv"
-BB_ADDR        = "127.0.0.1:8080"
-GPU_NUM        = "0"
+SIMPLEMIND_DIR = "./" 
+PLAN = "plans/oct"
+CSV_FILE = "data/oct_images.csv"
+BB_ADDR = "127.0.0.1:8080"
+GPU_NUM = "0"
 
 ## PLACEHOLDERS
 image_main_structure_segmentations = [
@@ -92,6 +91,10 @@ def load_logo(path: str, size: int) -> ImageTk.PhotoImage:
     img = img.resize((size, size), Image.LANCZOS)
     return ImageTk.PhotoImage(img)
 
+def load_icon(path, size=(28, 28)):
+    img = Image.open(path).convert("RGBA")
+    img = img.resize(size, Image.LANCZOS)
+    return ImageTk.PhotoImage(img)
 
 def make_placeholder_thumbnail(size=(152, 94), label="") -> ImageTk.PhotoImage:
     width, height = size
@@ -115,7 +118,18 @@ def make_placeholder_thumbnail(size=(152, 94), label="") -> ImageTk.PhotoImage:
 def load_thumbnail_from_file(path: str, size=(152, 94)) -> ImageTk.PhotoImage:
     try:
         img = Image.open(path).convert("RGBA")
-        img.thumbnail(size, Image.LANCZOS)
+
+        img_ratio = img.width / img.height
+        target_ratio = size[0] / size[1]
+        if img_ratio > target_ratio:
+            new_width = int(img.height * target_ratio)
+            offset = (img.width - new_width) // 2
+            img = img.crop((offset, 0, offset + new_width, img.height))
+        else:
+            new_height = int(img.width / target_ratio)
+            offset = (img.height - new_height) // 2
+            img = img.crop((0, offset, img.width, offset + new_height))
+        img = img.resize(size, Image.LANCZOS)
         return ImageTk.PhotoImage(img)
     except Exception:
         return make_placeholder_thumbnail(size=size, label=os.path.basename(path).split(".")[0])
@@ -136,10 +150,6 @@ def list_images_in_folder(folder: str):
 
 
 def scan_study_root(root_folder: str):
-    """Return [(folder_name, folder_path, [images...]), ...].
-
-    Uses subfolders that contain images. If none are found, falls back to the root folder itself.
-    """
     groups = []
     if not root_folder or not os.path.isdir(root_folder):
         return groups
@@ -148,14 +158,12 @@ def scan_study_root(root_folder: str):
         entries = sorted(os.listdir(root_folder))
     except OSError:
         entries = []
-
     for entry in entries:
         path = os.path.join(root_folder, entry)
         if os.path.isdir(path):
             imgs = list_images_in_folder(path)
     if imgs:
         groups.append(("Input and Preprocessing", path, imgs))
-        # change this to the actual directory(hardcoded)
         groups.append(("Segmentations: Main Structures", path_main_structure_segmentations, image_main_structure_segmentations))
         groups.append(("Segmentations: Scleral Spur", path_scleral_spur_segmentations, image_scleral_spur_segmentations))
         groups.append(("Measurements and Annotations", path_measurements, image_measurements))
@@ -170,6 +178,58 @@ def scan_study_root(root_folder: str):
 
     return []
 
+class CircleIconButton(tk.Canvas):
+    def __init__(self, master, icon_path, command=None, size=52,
+                 fill=WHITE, hover_fill=PURPLE_LIGHT, bg=DARK_PANEL):
+        super().__init__(master, width=size, height=size,
+                         highlightthickness=0, bg=bg)
+        self.command = command
+        self.size = size
+        self.normal_fill = fill
+        self.hover_fill = hover_fill
+        self._bg = bg
+        self._enabled = True
+        
+        raw = Image.open(icon_path).convert("RGBA")
+        bbox = raw.getbbox()
+        if bbox:
+            raw = raw.crop(bbox)
+
+        raw = raw.resize((int(size * 0.45), int(size * 0.45)), Image.LANCZOS)
+        r, g, b, a = raw.split()
+        purple_img = Image.new("RGBA", raw.size, (111, 75, 220, 255))
+        purple_img.putalpha(a)
+        self._icon = ImageTk.PhotoImage(purple_img)
+
+        self.configure(cursor="hand2")
+        self._draw(self.normal_fill)
+        self.bind("<Button-1>", self._clicked)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+
+    def _draw(self, fill):
+        self.delete("all")
+        pad = 2
+        self.create_oval(pad, pad, self.size - pad, self.size - pad,
+                         fill=fill, outline=fill)
+        self.create_image(self.size // 2, self.size // 2,
+                          image=self._icon, anchor="center")
+
+    def set_enabled(self, enabled: bool):
+        self._enabled = enabled
+        self.configure(cursor="hand2" if enabled else "")
+        self._draw(self.normal_fill if enabled else "#e0e0e0")
+
+    def _clicked(self, _event):
+        if self._enabled and callable(self.command):
+            self.command()
+
+    def _on_enter(self, _event):
+        if self._enabled:
+            self._draw(self.hover_fill)
+
+    def _on_leave(self, _event):
+        self._draw(self.normal_fill if self._enabled else "#e0e0e0")
 
 class PillButton(tk.Canvas):
     def __init__(self, master, text, command=None, width=220, height=52,
@@ -212,7 +272,7 @@ class PillButton(tk.Canvas):
             self._draw(self.normal_fill)
         else:
             self.configure(cursor="")
-            self._draw("#e0e0e0")  # greyed-out fill
+            self._draw("#e0e0e0")  
 
     def _draw(self, fill):
         self.delete("all")
@@ -255,8 +315,7 @@ class TileButton(tk.Frame):
         self.bind("<Button-1>", self._clicked)
 
         if self.value_text is None:
-            # Folder tile
-            self.icon_ref = self._make_folder_icon(64, selected=self.selected)
+            self.icon_ref = load_icon("./assets/icon_folder.png", (64, 64))
             icon_label = tk.Label(self, image=self.icon_ref, bg=WHITE, borderwidth=0)
             icon_label.pack()
             icon_label.bind("<Button-1>", self._clicked)
@@ -268,11 +327,11 @@ class TileButton(tk.Frame):
                 fg=TEXT_BLACK,
                 font=("Helvetica", 10, "normal"),
                 justify="center",
+                wraplength=110,
             )
             title_label.pack(pady=(4, 0))
             title_label.bind("<Button-1>", self._clicked)
         else:
-            # File / measurement tile
             frame = tk.Frame(self, bg=WHITE)
             frame.pack()
             self.thumb_ref = self.image if self.image is not None else make_placeholder_thumbnail()
@@ -314,10 +373,9 @@ class TileButton(tk.Frame):
 
         if selected:
             draw.rounded_rectangle((2, 2, size - 2, size - 2), radius=12, fill=(230, 214, 255, 255))
-
-        draw.rounded_rectangle((10, 24, size - 10, size - 14), radius=8, outline=outline, width=5)
-        draw.rectangle((10, 24, size - 26, 34), fill=bg)
-        draw.polygon([(12, 24), (26, 24), (32, 18), (48, 18), (48, 24)], fill=fill)
+        draw.rounded_rectangle((8, 18, size - 10, size - 12), radius=10, outline=outline, width=5)
+        draw.rectangle((8, 18, size - 10, 28), fill=bg)
+        draw.polygon([(12, 18), (28, 18), (34, 12), (52, 12), (52, 18)], fill=fill)
 
         return ImageTk.PhotoImage(img)
 
@@ -325,16 +383,20 @@ class TileButton(tk.Frame):
         if callable(self.on_click):
             self.on_click()
 
-
 class ASOCTApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.geometry(f"{WINDOW_COLLAPSED_WIDTH}x{WINDOW_HEIGHT}")
+        self.minsize(WINDOW_COLLAPSED_WIDTH, WINDOW_HEIGHT)
+        self.maxsize(WINDOW_EXPANDED_WIDTH, WINDOW_HEIGHT)
+
+        self.update()
+        self.lift()
+        self.focus_force()
         self.title(TITLE)
         self.configure(bg=WHITE)
-        # Remove the maximize button entirely (cross-platform)
         self.resizable(False, False)
         try:
-            # Windows: strip WS_MAXIMIZEBOX from the window style via ctypes
             import ctypes
             hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
             GWL_STYLE    = -16
@@ -342,15 +404,14 @@ class ASOCTApp(tk.Tk):
             style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
             ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style & ~WS_MAXIMIZEBOX)
         except Exception:
-            pass  # Non-Windows platforms: resizable(False,False) already hides/disables it
-        # Open maximized / full-screen on all platforms
+            pass
         try:
-            self.state("zoomed")               # Windows & some Linux WMs
+            self.state("zoomed")
         except tk.TclError:
             try:
-                self.attributes("-zoomed", True)   # Linux (GNOME / KDE)
+                self.attributes("-zoomed", True)
             except tk.TclError:
-                self.attributes("-fullscreen", True)  # macOS fallback
+                pass
 
         self.eye_logo = None
         self.sm_logo = None
@@ -363,30 +424,46 @@ class ASOCTApp(tk.Tk):
         self.selected_image_index = 0
         self.preview_ref = None
 
+        self.preview_visible = False
+
         # Hardcoded folder directories
         self._plan_var = tk.StringVar(value=PLAN)
-        self._csv_var  = tk.StringVar(value=CSV_FILE)
+        self._csv_var = tk.StringVar(value=CSV_FILE)
         self._addr_var = tk.StringVar(value=BB_ADDR)
-        self._gpu_var  = tk.StringVar(value=GPU_NUM)
+        self._gpu_var = tk.StringVar(value=GPU_NUM)
 
         # State
-        self._bb_proc         = None
-        self._plan_proc       = None
-        self._observer        = None
-        self._images          = []      # list of (timestamp, filepath)
-        self._slide_idx       = 0
-        self._slide_job       = None
-        self._paused          = False
+        self._bb_proc = None
+        self._plan_proc = None
+        self._observer = None
+        self._images = []      # list of (timestamp, filepath)
+        self._slide_idx = 0
+        self._slide_job = None
+        self._paused = False
         self._waiting_for_new = False
-        self._wait_start      = 0.0
-        self._last_count      = 0
-        self._running         = False
-        self._working_dir     = None
+        self._wait_start = 0.0
+        self._last_count = 0
+        self._running = False
+        self._analysis_run = False
+        self._study_loaded = False
+        self._working_dir = None
 
+        # Zoom / pan state 
+        self.zoom_level = 1.0
+        self.pan_x = 0
+        self.pan_y = 0
+        self._drag_start = None
+        self.active_tool = "pan"
+        self.tool_active = False        # True only after Zoom or Pan is clicked
+        self._zoom_job = None
+        self._pan_job = None
+        self._original_preview_img = None
+    
         self._build_ui()
 
     def _build_ui(self):
         self.container = tk.Frame(self, bg=WHITE)
+        self.configure(bg=WHITE)
         self.container.pack(fill="both", expand=True)
 
         self.home_screen = tk.Frame(self.container, bg=WHITE)
@@ -411,10 +488,10 @@ class ASOCTApp(tk.Tk):
             bg=WHITE,
             fg=TEXT_BLACK,
             font=("Helvetica", 46, "normal"),
-        ).pack(pady=(22, 14))
+        ).pack(pady=(12, 8))
 
         subtitle_row = tk.Frame(center, bg=WHITE)
-        subtitle_row.pack(pady=(0, 20))
+        subtitle_row.pack(pady=(0, 10))
         tk.Label(
             subtitle_row,
             text=SUBTITLE,
@@ -434,19 +511,18 @@ class ASOCTApp(tk.Tk):
             font=("Helvetica", 11, "normal"),
             wraplength=520,
             justify="center",
-        ).pack(pady=(0, 28))
+        ).pack(pady=(0, 16))
 
         btn_row = tk.Frame(center, bg=WHITE)
-        btn_row.pack(pady=(0, 12))
-        self.run_btn = PillButton(btn_row, "Run Analysis", command=self._on_run_analysis, width=250, height=64)
+        btn_row.pack(pady=(0, 8))
+        self.run_btn = PillButton(btn_row, "Run Analysis", command=self._on_run_analysis, width=180, height=64)
         self.run_btn.pack(side="left", padx=16)
-        self.load_btn = PillButton(btn_row, "Load Study", command=self._on_load_study, width=250, height=64)
+        self.load_btn = PillButton(btn_row, "Load Study", command=self._on_load_study, width=180, height=64)
         self.load_btn.pack(side="left", padx=16)
-        self.view_btn = PillButton(btn_row, "View Results", command=self._show_results, width=250, height=64)
+        self.view_btn = PillButton(btn_row, "View Results", command=self._show_results, width=180, height=64)
         self.view_btn.pack(side="left", padx=16)
-        self.view_btn.set_enabled(False)  # disabled until analysis completes
+        self.view_btn.set_enabled(False)
 
-        # Status label shown while pipeline is running
         self.status_label = tk.Label(
             center, text="", bg=WHITE, fg=PURPLE,
             font=("Helvetica", 12, "italic")
@@ -454,43 +530,36 @@ class ASOCTApp(tk.Tk):
         self.status_label.pack(pady=(4, 0))
 
     def _build_results_screen(self):
-        top = tk.Frame(self.results_screen, bg=WHITE)
-        top.pack(fill="x", padx=18, pady=(14, 8))
+        self.left_panel = tk.Frame(self.results_screen, bg=WHITE, width=WINDOW_COLLAPSED_WIDTH)
+        self.left_panel.pack_propagate(False)
+        self.left_panel.pack(side="left", fill="both", expand=False, padx=(22, 10), pady=(4, 14))
 
-        back_btn = tk.Label(top, text="Home", fg=PURPLE, bg=WHITE, font=("Helvetica", 30), cursor="hand2")
+        self.right_panel = tk.Frame(self.results_screen, bg=DARK_PANEL)
+        self.right_panel.pack_forget()
+        self.right_panel.configure(width=400)
+        self.right_panel.pack_propagate(False)
+
+        top = tk.Frame(self.left_panel, bg=WHITE)
+        top.pack(fill="x", pady=(14, 8))
+
+        self.icon_back = load_icon("./assets/icon_back.png", (28, 28))
+        back_btn = tk.Label(top, image=self.icon_back, bg=WHITE, cursor="hand2")
         back_btn.pack(side="left")
         back_btn.bind("<Button-1>", lambda _e: self._show_home())
 
         tabs = tk.Frame(top, bg=WHITE)
-        tabs.pack(side="left", padx=(8, 0))
+        tabs.pack(side="left", padx=(8, 0), fill="x", expand=True)
+        tabs.grid_columnconfigure(0, weight=1)
+        tabs.grid_columnconfigure(1, weight=1)
 
-        self.library_tab = tk.Canvas(tabs, width=220, height=44, bg=WHITE, highlightthickness=0)
-        self.library_tab.pack(side="left")
-        self.measurement_tab = tk.Canvas(tabs, width=220, height=44, bg=WHITE, highlightthickness=0)
-        self.measurement_tab.pack(side="left")
+        self.library_tab = tk.Canvas(tabs, width=350, height=44, bg=WHITE, highlightthickness=0)
+        self.library_tab.grid(row=0, column=0, sticky="ew")
+
+        self.measurement_tab = tk.Canvas(tabs, width=350, height=44, bg=WHITE, highlightthickness=0)
+        self.measurement_tab.grid(row=0, column=1, sticky="ew")
 
         self.library_tab.bind("<Button-1>", lambda _e: self._set_mode("library"))
         self.measurement_tab.bind("<Button-1>", lambda _e: self._set_mode("measurements"))
-
-        # ── LAYOUT FIX ──────────────────────────────────────────────────────────
-        # Use a PanedWindow (or simply two equal frames) so the right panel
-        # always occupies exactly half of the 1000 px window width.
-        # Left panel: scrollable content area  (~478 px usable after padding)
-        # Right panel: dark preview panel      (~478 px usable after padding)
-        # Total: 478 + 4(left padx) + 4(right padx) ≈ 1000 px
-        body = tk.Frame(self.results_screen, bg=WHITE)
-        body.pack(fill="both", expand=True, padx=0, pady=0)
-        body.grid_columnconfigure(0, weight=1, uniform="half")
-        body.grid_columnconfigure(1, weight=1, uniform="half")
-        body.grid_rowconfigure(0, weight=1)
-
-        self.left_panel = tk.Frame(body, bg=WHITE)
-        self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(18, 6), pady=(0, 14))
-
-        self.right_panel = tk.Frame(body, bg=DARK_PANEL)
-        self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 18), pady=(0, 14))
-        self.right_panel.pack_propagate(False)
-        # ────────────────────────────────────────────────────────────────────────
 
         self._build_left_content()
         self._build_right_content()
@@ -500,6 +569,7 @@ class ASOCTApp(tk.Tk):
     def _build_left_content(self):
         self.library_view = tk.Frame(self.left_panel, bg=WHITE)
         self.measurements_view = tk.Frame(self.left_panel, bg=WHITE)
+        self.measurements_view.configure(bg=WHITE)
         self.library_view.pack(fill="both", expand=True)
         self.measurements_view.pack_forget()
 
@@ -512,34 +582,50 @@ class ASOCTApp(tk.Tk):
         self.measurement_file_grid = tk.Frame(self.measurements_view, bg=WHITE)
         self.measurement_file_grid.pack(anchor="nw", pady=(8, 8), fill="x")
 
-        # initial render happens after the right panel is built
-
     def _build_right_content(self):
         self.preview_outer = tk.Frame(self.right_panel, bg=DARK_PANEL)
         self.preview_outer.pack(fill="both", expand=True, padx=12, pady=12)
 
-        # Canvas fills the available width; height is driven by the panel's
-        # actual pixel height so it is never truncated.
         self.preview_canvas = tk.Canvas(
-            self.preview_outer, bg=WHITE, highlightthickness=0
+            self.preview_outer, bg=DARK_PANEL, highlightthickness=0,
+            bd=0, width=380, height=320
         )
-        self.preview_canvas.pack(fill="both", expand=True, padx=4, pady=(0, 12))
+        self.preview_canvas.pack(fill="both", expand=True, padx=0, pady=0)
+
+        # Zoom / pan bindings 
+        self.preview_canvas.bind("<MouseWheel>", self._on_zoom)   # Windows / macOS
+        self.preview_canvas.bind("<Button-4>", self._on_zoom)     
+        self.preview_canvas.bind("<Button-5>", self._on_zoom)   
+        self.preview_canvas.bind("<ButtonPress-1>", self._start_pan)
+        self.preview_canvas.bind("<B1-Motion>", self._do_pan)
 
         tool_row = tk.Frame(self.preview_outer, bg=DARK_PANEL)
         tool_row.pack(pady=(0, 10))
-        tool_style = dict(bg=PURPLE_LIGHT, fg=TEXT_BLACK, bd=0, relief="flat", font=("Helvetica", 18, "bold"), cursor="hand2")
-        tk.Button(tool_row, text="<", width=2, height=1, command=self._prev_item, **tool_style).pack(side="left", padx=8)
-        tk.Button(tool_row, text="Zoom", width=2, height=1, command=self._zoom_item, **tool_style).pack(side="left", padx=8)
-        tk.Button(tool_row, text="Pan", width=2, height=1, command=self._pan_item, **tool_style).pack(side="left", padx=8)
-        tk.Button(tool_row, text=">", width=2, height=1, command=self._next_item, **tool_style).pack(side="left", padx=8)
+        tool_style = dict(
+            bg=PURPLE_LIGHT, fg=TEXT_BLACK, bd=0, relief="flat",
+            font=("Helvetica", 22, "bold"), cursor="hand2"
+        )
+        tk.Button(tool_row, text="<",    width=2, height=1, command=self._prev_item,  **tool_style).pack(side="left", padx=8)
+        CircleIconButton(tool_row, icon_path="./assets/zoom-plus-svgrepo-com.png", command=self._zoom_item, size=40).pack(side="left", padx=8)
+        CircleIconButton(tool_row, icon_path="./assets/pan-svgrepo-com.png", command=self._pan_item, size=40).pack(side="left", padx=8)
+        tk.Button(tool_row, text=">",    width=2, height=1, command=self._next_item,  **tool_style).pack(side="left", padx=8)
 
-        self.preview_mode_label = tk.Label(self.preview_outer, text="", bg=DARK_PANEL, fg=DARK_TEXT, font=("Helvetica", 12, "bold"))
+        self.preview_mode_label = tk.Label(
+            self.preview_outer, text="", bg=DARK_PANEL, fg=DARK_TEXT,
+            font=("Helvetica", 12, "bold")
+        )
         self.preview_mode_label.pack(pady=(6, 4))
 
-        self.preview_title = tk.Label(self.preview_outer, text="", bg=DARK_PANEL, fg=DARK_TEXT, font=("Helvetica", 12, "bold"))
+        self.preview_title = tk.Label(
+            self.preview_outer, text="", bg=DARK_PANEL, fg=DARK_TEXT,
+            font=("Helvetica", 12, "bold")
+        )
         self.preview_title.pack(pady=(0, 4))
 
-        self.preview_detail = tk.Label(self.preview_outer, text="", bg=DARK_PANEL, fg=DARK_TEXT, font=("Helvetica", 10), justify="center")
+        self.preview_detail = tk.Label(
+            self.preview_outer, text="", bg=DARK_PANEL, fg=DARK_TEXT,
+            font=("Helvetica", 10), justify="center"
+        )
         self.preview_detail.pack(pady=(0, 4))
 
     def _render_tabs(self):
@@ -577,13 +663,16 @@ class ASOCTApp(tk.Tk):
     def _show_home(self):
         self.home_screen.lift()
         self.title(TITLE)
+        self.geometry(f"{WINDOW_COLLAPSED_WIDTH}x{WINDOW_HEIGHT}")
+        self.right_panel.pack_forget()
+        self.geometry(f"{WINDOW_COLLAPSED_WIDTH}x{WINDOW_HEIGHT}")
+        self.preview_visible = False
 
     def _show_results(self):
         if not self.selected_root_folder:
             messagebox.showwarning("No folder selected", "Please click Run Analysis and choose a folder first.")
             return
         print(self.selected_root_folder)
-        # Append the working directory with the output folder for the image output
         self.tester = self.selected_root_folder.get().strip()
         print(f"tester: {self.tester}")
         self.pattern_directory = os.path.join(self._working_dir, "output_*/oct")
@@ -599,6 +688,10 @@ class ASOCTApp(tk.Tk):
         self.selected_folder_index = 0
         self.selected_image_index = 0
         self.results_mode = "library"
+        self.preview_visible = False
+        self.right_panel.pack_forget()
+        self.geometry(f"{WINDOW_COLLAPSED_WIDTH}x{WINDOW_HEIGHT}")
+
         self.results_screen.lift()
         self.title("AS-OCT Auto-Seg Results")
         self._render_results()
@@ -607,26 +700,28 @@ class ASOCTApp(tk.Tk):
         folder = filedialog.askdirectory(title="Select Study Folder")
         if folder:
             self.selected_root_folder = tk.StringVar(value=folder)
-            self.selected_folder_label.set(f"Selected folder: {folder}")            
+            self.selected_folder_label.set(f"Selected folder: {folder}")
         else:
             self.selected_root_folder = None
             self.selected_folder_label.set("No folder selected yet")
+        
+        self._analysis_run = False   
+        self._study_loaded = False   
+        self.view_btn.set_enabled(False)
 
-        ### Start pipeline
         self._start_pipeline()
 
     def _on_load_study(self):
-            folder = filedialog.askdirectory(title="Select Processed Study Folder")
-            if not folder:
-                return
-            self.selected_root_folder = tk.StringVar(value=folder)
-            self._working_dir = folder
-            self.selected_folder_label.set(f"Selected folder: {folder}")
-            self.status_label.config(text="Study loaded - press View Results to continue")
-            self.view_btn.set_enabled(True)
+        folder = filedialog.askdirectory(title="Select Processed Study Folder")
+        if not folder:
+            return
+        self.selected_root_folder = tk.StringVar(value=folder)
+        self._working_dir = folder
+        self.selected_folder_label.set(f"Selected folder: {folder}")
+        self.status_label.config(text="Study loaded - press View Results to continue")
+        self.view_btn.set_enabled(True)
 
     def _start_status_timer(self):
-        """Animate a running indicator on the status label."""
         self._status_tick = 0
         self._tick_status()
 
@@ -637,14 +732,12 @@ class ASOCTApp(tk.Tk):
         self._status_timer_id = self.after(500, self._tick_status)
 
     def _on_pipeline_done(self):
-        """Called on the Tk thread once the pipeline subprocess finishes."""
-        # Stop the animated status label
         if hasattr(self, '_status_timer_id'):
             self.after_cancel(self._status_timer_id)
-        self.status_label.config(text="Analysis complete - ready to view results")
-        # Re-enable buttons
+        self.status_label.config(text="Analysis complete - load study folder")
         self.run_btn.set_enabled(True)
-        self.view_btn.set_enabled(True)
+        self._analysis_run = True
+        self._update_view_btn()
 
     def _start_pipeline(self):
         sm_dir = self.selected_root_folder.get().strip()
@@ -656,19 +749,17 @@ class ASOCTApp(tk.Tk):
         t.start()
 
     def _pipeline_thread(self):
-        sm_dir  = self.selected_root_folder.get().strip()
-        plan    = self._plan_var.get().strip()
-        csv     = self._csv_var.get().strip()
-        addr    = self._addr_var.get().strip()
-        gpu     = self._gpu_var.get().strip()
+        sm_dir = self.selected_root_folder.get().strip()
+        plan = self._plan_var.get().strip()
+        csv = self._csv_var.get().strip()
+        addr = self._addr_var.get().strip()
+        gpu = self._gpu_var.get().strip()
 
         env = os.environ.copy()
-        # Activate micromamba env
         mamba_bin = os.path.expanduser("~/micromamba/envs/smcore/bin")
         if os.path.isdir(mamba_bin):
             env["PATH"] = mamba_bin + os.pathsep + env.get("PATH", "")
 
-        # 1. Start blackboard
         print("Starting blackboard (core start server)...")
         try:
             self._bb_proc = subprocess.Popen(
@@ -677,11 +768,10 @@ class ASOCTApp(tk.Tk):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
         except FileNotFoundError:
-            print("⚠  'core' command not found - skipping BB start.")
+            print("ERROR: 'core' command not found - skipping BB start.")
 
         time.sleep(2)
 
-        # 2. Run plan
         cmd = [
             "python", "run_plan.py", plan,
             "--dataset_csv", csv,
@@ -703,10 +793,8 @@ class ASOCTApp(tk.Tk):
             print("Error - check log")
             return
 
-        # Start polling immediately — _poll_folder runs on Tk thread every 2s
         self.after(0, self._poll_folder)
 
-        # Stream log output
         for line in self._plan_proc.stdout:
             line = line.rstrip()
             if line:
@@ -726,10 +814,8 @@ class ASOCTApp(tk.Tk):
         ret = self._plan_proc.wait()
         print(f"Plan exited (code {ret})")
         print("Done - showing results")
-        # Signal the Tk main thread that the pipeline is finished
         self.after(0, self._on_pipeline_done)
 
-    #  Continuous folder poll 
     def _poll_folder(self):
         sm_dir = self.selected_root_folder.get().strip()
         if self._working_dir is None and sm_dir:
@@ -764,7 +850,7 @@ class ASOCTApp(tk.Tk):
         if mode not in ("library", "measurements"):
             return
         self.results_mode = mode
-        self.selected_image_index = 0  # reset preview to first image on tab switch
+        self.selected_image_index = 0
         self._render_results()
 
     def _render_results(self):
@@ -788,7 +874,10 @@ class ASOCTApp(tk.Tk):
         if not self.folder_groups:
             return
 
-        cols = 4
+        cols = 5
+        for i in range(cols):
+            self.folder_grid.grid_columnconfigure(i, weight=1, uniform="folders")
+
         for idx, (folder_name, _folder_path, _images) in enumerate(self.folder_groups):
             r = idx // cols
             c = idx % cols
@@ -813,7 +902,6 @@ class ASOCTApp(tk.Tk):
         self._render_file_thumbnails(use_measurement_view=True)
 
     def _get_measurements_folder_index(self):
-        """Return the index of the 'Measurements and Annotations' folder group, or -1 if not found."""
         for i, (folder_name, _path, _images) in enumerate(self.folder_groups):
             if "measurement" in folder_name.lower():
                 return i
@@ -825,7 +913,6 @@ class ASOCTApp(tk.Tk):
             child.destroy()
 
         if use_measurement_view:
-            # Always show the Measurements and Annotations folder in the Measurements tab
             meas_idx = self._get_measurements_folder_index()
             folder_idx = meas_idx if meas_idx != -1 else self.selected_folder_index
         else:
@@ -836,7 +923,10 @@ class ASOCTApp(tk.Tk):
             tk.Label(target, text="No image files in this folder.", bg=WHITE, fg=TEXT_GRAY, font=("Helvetica", 12, "italic")).pack(anchor="w", pady=16)
             return
 
-        cols = 4
+        cols = 5
+        for i in range(cols):
+            target.grid_columnconfigure(i, weight=1, uniform="files")
+
         self.file_thumb_refs = []
         print(images)
         for idx, img_path in enumerate(images):
@@ -844,6 +934,8 @@ class ASOCTApp(tk.Tk):
             c = idx % cols
             thumb = load_thumbnail_from_file(img_path, size=(100, 66))
             self.file_thumb_refs.append(thumb)
+            target.configure(bg=WHITE)
+
             tile = tk.Frame(target, bg=WHITE)
             tile.grid(row=r, column=c, padx=14, pady=(0, 18), sticky="n")
             border = tk.Label(
@@ -862,12 +954,12 @@ class ASOCTApp(tk.Tk):
             tk.Label(tile, text=name, bg=WHITE, fg=TEXT_BLACK, font=("Helvetica", 9, "normal"), wraplength=110, justify="center").pack(pady=(6, 0))
 
     def _render_preview(self):
+        if not self.preview_visible:
+            return
+
         self.preview_canvas.delete("all")
 
         if not self.folder_groups:
-            self.preview_mode_label.config(text="")
-            self.preview_title.config(text="")
-            self.preview_detail.config(text="")
             return
 
         if self.results_mode == "measurements":
@@ -881,8 +973,11 @@ class ASOCTApp(tk.Tk):
             self.preview_mode_label.config(text=self.results_mode.capitalize())
             self.preview_title.config(text=self.folder_groups[folder_idx][0])
             self.preview_detail.config(text="")
-            self.preview_ref = make_placeholder_thumbnail((500, 380), label="No images")
-            self.preview_canvas.create_image(250, 190, image=self.preview_ref)
+            self.preview_ref = make_placeholder_thumbnail((380, 320), label="No images")
+            self.preview_canvas.update_idletasks()
+            cx = self.preview_canvas.winfo_width() // 2
+            cy = self.preview_canvas.winfo_height() // 2
+            self.preview_canvas.create_image(cx, cy, image=self.preview_ref)
             return
 
         self.selected_image_index = max(0, min(self.selected_image_index, len(images) - 1))
@@ -891,34 +986,104 @@ class ASOCTApp(tk.Tk):
         self.preview_title.config(text=os.path.basename(image_path))
         self.preview_detail.config(text="")
 
-        # Use the actual rendered canvas dimensions so the image fills the panel
         self.preview_canvas.update_idletasks()
         canvas_w = self.preview_canvas.winfo_width() or 450
         canvas_h = self.preview_canvas.winfo_height() or 500
 
+        # Image rendering 
         try:
-            img = Image.open(image_path).convert("RGBA")
-            img.thumbnail((canvas_w - 8, canvas_h - 8), Image.LANCZOS)
+            if self._original_preview_img is None:
+                img = Image.open(image_path).convert("RGBA")
+                self._original_preview_img = img
+
+            img = self._original_preview_img
+
+            fit_scale = min(canvas_w / img.width, canvas_h / img.height)
+
+            if self.tool_active:
+                scale = fit_scale * self.zoom_level
+                draw_x = canvas_w // 2 + self.pan_x
+                draw_y = canvas_h // 2 + self.pan_y
+            else:
+                scale = fit_scale
+                draw_x = canvas_w // 2
+                draw_y = canvas_h // 2
+
+            new_size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
+            img = img.resize(new_size, Image.LANCZOS)
             self.preview_ref = ImageTk.PhotoImage(img)
+
         except Exception:
             self.preview_ref = make_placeholder_thumbnail(
                 (canvas_w - 8, canvas_h - 8),
                 label=os.path.basename(image_path).split(".")[0]
             )
+            draw_x = canvas_w // 2
+            draw_y = canvas_h // 2
 
-        self.preview_canvas.create_image(canvas_w // 2, canvas_h // 2, image=self.preview_ref)
+        self.preview_canvas.create_image(draw_x, draw_y, image=self.preview_ref)
+
+    # Zoom / pan helpers 
+    def _on_zoom(self, event):
+        if self.active_tool != "zoom":
+            return
+
+        if event.delta > 0 or getattr(event, "num", None) == 4:
+            self.zoom_level *= 1.05
+        else:
+            self.zoom_level /= 1.05
+
+        self.zoom_level = max(0.2, min(self.zoom_level, 5.0))
+
+        # Debounce: defer redraw by one animation frame (16 ms)
+        if self._zoom_job:
+            self.after_cancel(self._zoom_job)
+        self._zoom_job = self.after(16, self._render_preview)
+
+    def _start_pan(self, event):
+        if self.active_tool != "pan":
+            return
+        self._drag_start = (event.x, event.y)
+
+    def _do_pan(self, event):
+        if self.active_tool != "pan" or not self._drag_start:
+            return
+
+        dx = event.x - self._drag_start[0]
+        dy = event.y - self._drag_start[1]
+        self.pan_x += dx
+        self.pan_y += dy
+        self._drag_start = (event.x, event.y)
+
+        if self._pan_job:
+            self.after_cancel(self._pan_job)
+        self._pan_job = self.after(16, self._render_preview)
+
+    def _reset_view(self):
+        self.zoom_level = 1.0
+        self.pan_x = 0
+        self.pan_y = 0
+        self.tool_active = False
+        self._original_preview_img = None
 
     def _select_folder(self, idx):
         self.selected_folder_index = idx
         self.selected_image_index = 0
+        self.preview_visible = False
+        self.right_panel.pack_forget()
+        self.geometry(f"{WINDOW_COLLAPSED_WIDTH}x{WINDOW_HEIGHT}")
         self._render_results()
 
     def _select_image(self, idx):
         self.selected_image_index = idx
+        self._reset_view()        # reset zoom/pan on new selection
+        self.preview_visible = True
+        if not self.right_panel.winfo_ismapped():
+            self.right_panel.pack(side="right", fill="both", expand=False, padx=(0, 22), pady=(4, 14))
+        self.geometry(f"{WINDOW_EXPANDED_WIDTH}x{WINDOW_HEIGHT}")
         self._render_results()
 
     def _active_images(self):
-        """Return the image list for the currently active tab."""
         if self.results_mode == "measurements":
             meas_idx = self._get_measurements_folder_index()
             folder_idx = meas_idx if meas_idx != -1 else self.selected_folder_index
@@ -927,28 +1092,36 @@ class ASOCTApp(tk.Tk):
         return self.folder_groups[folder_idx][2]
 
     def _prev_item(self):
-        if not self.folder_groups:
+        if not self.folder_groups or not self.preview_visible:
             return
         images = self._active_images()
         if not images:
             return
         self.selected_image_index = (self.selected_image_index - 1) % len(images)
+        self._reset_view()
         self._render_results()
 
     def _next_item(self):
-        if not self.folder_groups:
+        if not self.folder_groups or not self.preview_visible:
             return
         images = self._active_images()
         if not images:
             return
         self.selected_image_index = (self.selected_image_index + 1) % len(images)
+        self._reset_view()
         self._render_results()
 
     def _zoom_item(self):
-        messagebox.showinfo("Prototype", "Zoom will be connected in the next step.")
+        self.active_tool = "zoom"
+        self.tool_active = True
+        self.preview_mode_label.config(text="Mode: Zoom  (scroll to zoom)")
+        self._render_preview()
 
     def _pan_item(self):
-        messagebox.showinfo("Prototype", "Pan will be connected in the next step.")
+        self.active_tool = "pan"
+        self.tool_active = True
+        self.preview_mode_label.config(text="Mode: Pan  (drag to pan)")
+        self._render_preview()
 
 
 if __name__ == "__main__":
