@@ -737,7 +737,6 @@ class ASOCTApp(tk.Tk):
         self.status_label.config(text="Analysis complete - load study folder")
         self.run_btn.set_enabled(True)
         self._analysis_run = True
-        self._update_view_btn()
 
     def _start_pipeline(self):
         sm_dir = self.selected_root_folder.get().strip()
@@ -830,10 +829,6 @@ class ASOCTApp(tk.Tk):
         if not base or not os.path.isdir(base):
             self.after(2000, self._poll_folder)
             return
-
-        all_pngs = self._collect_pngs(base)
-        existing_paths = {fp for _, fp in self._images}
-        new_found = [fp for fp in all_pngs if fp not in existing_paths]
 
         if new_found:
             was_empty = not self._images
