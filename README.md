@@ -129,12 +129,12 @@ Open your WSL terminal, navigate to the repository directory, and run:
 ```bash
 cd AS-OCT-Auto-Seg
 micromamba activate smcore
-./"AS-OCT Auto-Seg"
+./"Main"
 ```
 
 ### Windows *(Beta)*
 
-Simply **double-click** `AS-OCT Auto-Seg.exe` in the repository folder.
+Simply **double-click** `Main.exe` in the repository folder.
 
 > Windows support is currently in beta. For the most stable experience, use the WSL method above.
 
