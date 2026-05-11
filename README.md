@@ -80,8 +80,8 @@ After downloading, your directory should look something like:
 
 ```
 AS-OCT-Auto-Seg/
-├── AS-OCT Auto-Seg          ← Linux executable
-├── AS-OCT Auto-Seg.exe      ← Windows executable (beta)
+├── Main          ← Linux executable
+├── Main.exe      ← Windows executable (beta)
 ├── env.yaml
 ├── <downloaded model files>
 └── ...
